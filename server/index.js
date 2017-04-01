@@ -6,7 +6,7 @@ const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const Nexmo = require('nexmo');
 const socketio = require('socket.io');
-const storage = require('node-persist');
+const storage = require('node-persist');  // Same with HTML5 LocalStorage, but this is for Node
 
 // Initialize app
 
@@ -54,7 +54,7 @@ app.get('/', (req, res) => {
 
 
 /***************************
-  Send SMS messages
+  Send SMS messages (Send Outbound messages)
  ***************************/
 app.post('/', (req, res) => {
   res.send(req.body);
@@ -75,14 +75,6 @@ app.post('/', (req, res) => {
     }
   });
 
-  /**
-   * Send SMS messages via Nexmo
-   *
-   * The Nexmo SMS API returns a payload that indicates if the result of the request.
-   * This status indicates that the SMS is successfully sent by you via Nexmo, and not an actual delivery receipt from the recipient's carrier.
-   * To get an actual delivery receipt from the recipient's carrier, you should register a webhook in "Callback URL for Inbound Message" field in your API Settings page.
-   * You can use "ngrok" to create a new URL for your webhook if you are developing on localhost.
-   */
   nexmo.message.sendSms(
     config.NUMBER, toNumber, text, {type: 'unicode'},
     (err, responseData) => {
@@ -105,7 +97,7 @@ app.post('/', (req, res) => {
 });
 
 /***************************
-  Receive SMS messages
+  Receive SMS messages (Receive Inbound messages)
  ***************************/
 app.post('/inbound', (req, res) => {
   handleInboundWebhook(req.body, res);
@@ -132,13 +124,13 @@ app.get('/inbound/:id', (req, res) => {
  * @param  {Object} params Message data object
  * @example
  *   {
- *     "messageId":"080000001947F7B2",
- *     "msisdn":"14159873202",
- *     "to":"123456789",
- *     "text":"Hello!",
- *     "keyword":"Hello!",
- *     "type":"text",
- *     "message-timestamp":"2016-10-26 17:47:26"
+ *     "messageId": "080000001947F7B2",
+ *     "msisdn": "14159873202",
+ *     "to": "123456789",
+ *     "text": "Hello!",
+ *     "keyword": "Hello!",
+ *     "type": "text",
+ *     "message-timestamp": "2016-10-26 17:47:26"
  *   }
  *
  * @param  {Object} res    Response
@@ -160,6 +152,50 @@ function handleInboundWebhook(params, res) {
     storage.setItem('id_' + params.messageId, inboundData);
 
     res.send(inboundData);
+  }
+
+  res.status(200).end();
+}
+
+/***************************
+  Receive Delivery Receipt from recipient's carrier
+ ***************************/
+app.post('/delivery-receipt', (req, res) => {
+  handleDeliveryReceiptWebhook(req.body, res);
+});
+
+app.get('/delivery-receipt', (req, res) => {
+  handleDeliveryReceiptWebhook(req.query, res);
+});
+
+/**
+ * Parse information from recipient's carrier
+ * @param  {Object} params Receipt data
+ * @example
+ *   {
+ *     "msisdn": "14155551234",
+ *     "to": "12015556666",
+ *     "network-code": "310090",
+ *     "messageId": "02000000FEA5EE9B",
+ *     "price": "0.00570000",
+ *     "status": "delivered",
+ *     "scts": "1610192240", // The Coordinated Universal Time (UTC)
+ *     "err-code": "0",
+ *     "message-timestamp": "2016-10-19 22:40:30"
+ *   }
+ * @param  {Object} res    Response
+ * @return {void}          Check information
+ */
+function handleDeliveryReceiptWebhook(params, res) {
+  if (!params['status'] || !params['messageId']) {
+    console.log('Invalid delivery receipt');
+  } else {
+    // This is a DLR, check that your message has been delivered correctly
+    if (params['status'] !== 'delivered') {
+      console.log('Failed: ' + params['status'] );
+    } else {
+      console.log('Successfully sent message', params);
+    }
   }
 
   res.status(200).end();

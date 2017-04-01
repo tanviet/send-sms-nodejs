@@ -34,6 +34,18 @@ Your local server (localhost:3000) now has a ngrok URL, https://435f0d962.ngrok.
 
 Sign in to your Nexmo account, and go to Settings. Scroll all way down to **API Settings** and fill out the **Webhook URL for Inbound Message** with the ngrok URL with a route, let’s call it inbound, enter *https://435f0d962.ngrok.io/inbound*, and let’s set the **HTTP Method** to POST then save.
 
+#### 2b. Register Webhook Endpoint to get Delivery Receipt
+
+When we send a message from our app to user, the message will be sent by following diagram
+
+```bash
+Our app <-> Nexmo <-> Recipient's carrier <-> User's phone number
+```
+
+The Nexmo SMS API returns a payload that indicates if the result of the request. This status indicates that the SMS is successfully sent by you via Nexmo, and not an actual delivery receipt from the recipient's carrier. To get an actual delivery receipt from the recipient's carrier, you should register a webhook in "Webhook URL for Delivery Receipt" field in your API Settings page.
+
+Fill out the **Webhook URL for Delivery Receipt** with the ngrok URL with a route, enter *https://435f0d962.ngrok.io/delivery-receipt*
+
 ### 3. Run the app
 
 ```bash
