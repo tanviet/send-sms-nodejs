@@ -22,6 +22,18 @@ module.exports = {
 };
 ```
 
+#### 2a. Register Webhook Endpoint to receive Inbound SMS messages
+
+First, download `ngrok` from [https://ngrok.com](https://ngrok.com). Once installed, run ngrok on terminal:
+
+```bash
+$ ngrok http 3000
+```
+
+Your local server (localhost:3000) now has a ngrok URL, https://435f0d962.ngrok.io that can be used as your webhook endpoint during development.
+
+Sign in to your Nexmo account, and go to Settings. Scroll all way down to **API Settings** and fill out the **Webhook URL for Inbound Message** with the ngrok URL with a route, let’s call it inbound, enter *https://435f0d962.ngrok.io/inbound*, and let’s set the **HTTP Method** to POST then save.
+
 ### 3. Run the app
 
 ```bash

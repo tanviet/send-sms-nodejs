@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const Nexmo = require('nexmo');
 const socketio = require('socket.io');
+const storage = require('node-persist');
 
 // Initialize app
 
@@ -13,6 +14,10 @@ const app = express();
 const server = app.listen(3000, () => {
   console.log('[Server] The server is listening on port %d in %s mode', server.address().port, app.settings.env);
 });
+
+// Setup storage to save inbound messages (only for testing purpose, should store all messages into a database)
+
+storage.init();
 
 // Initialize nexmo
 
@@ -47,6 +52,10 @@ app.get('/', (req, res) => {
   res.render('index');
 });
 
+
+/***************************
+  Send SMS messages
+ ***************************/
 app.post('/', (req, res) => {
   res.send(req.body);
 
@@ -74,23 +83,84 @@ app.post('/', (req, res) => {
    * To get an actual delivery receipt from the recipient's carrier, you should register a webhook in "Callback URL for Inbound Message" field in your API Settings page.
    * You can use "ngrok" to create a new URL for your webhook if you are developing on localhost.
    */
-   nexmo.message.sendSms(
-     config.NUMBER, toNumber, text, {type: 'unicode'},
-     (err, responseData) => {
-       if (err) {
-         data = {error: err};
-       } else {
-         console.dir('[Server] Successfully sent SMS', responseData);
+  nexmo.message.sendSms(
+    config.NUMBER, toNumber, text, {type: 'unicode'},
+    (err, responseData) => {
+      if (err) {
+        data = {error: err};
+      } else {
+        console.dir('[Server] Successfully sent SMS', responseData);
 
-         if (responseData.messages[0]['error-text']) {
-           data = {error: responseData.messages[0]['error-text']};
-         } else {
-           data = {id: responseData.messages[0]['message-id'], number: responseData.messages[0]['to']};
-         }
+        if (responseData.messages[0]['error-text']) {
+          data = {error: responseData.messages[0]['error-text']};
+        } else {
+          data = {id: responseData.messages[0]['message-id'], number: responseData.messages[0]['to']};
+        }
 
-         // Emit data to front-end
-         io.emit('smsStatus', data);
-       }
-     }
-   );
+        // Emit data to front-end
+        io.emit('smsStatus', data);
+      }
+    }
+  );
 });
+
+/***************************
+  Receive SMS messages
+ ***************************/
+app.post('/inbound', (req, res) => {
+  handleInboundWebhook(req.body, res);
+});
+
+app.get('/inbound', (req, res) => {
+  handleInboundWebhook(req.query, res);
+});
+
+app.get('/inbound/:id', (req, res) => {
+  try {
+    storage
+      .getItem('id_' + req.params.id)
+      .then((value) => {
+        res.json(value);
+      });
+  } catch(e) {
+    res.status(404).end();
+  }
+});
+
+/**
+ * Parse inbound message data which was sent from users via Nexmo to our application.
+ * @param  {Object} params Message data object
+ * @example
+ *   {
+ *     "messageId":"080000001947F7B2",
+ *     "msisdn":"14159873202",
+ *     "to":"123456789",
+ *     "text":"Hello!",
+ *     "keyword":"Hello!",
+ *     "type":"text",
+ *     "message-timestamp":"2016-10-26 17:47:26"
+ *   }
+ *
+ * @param  {Object} res    Response
+ * @return {void}          Send back message data to front-end and store message on server.
+ */
+function handleInboundWebhook(params, res) {
+  if (!params.to || !params.msisdn) {
+    console.log('Invalid inbound SMS message');
+  } else {
+    let inboundData = {
+      messageId: params.messageId,
+      from: params.msisdn,
+      to: params.to,
+      text: params.text,
+      type: params.type,
+      timestamp: params['message-timestamp']
+    };
+
+    storage.setItem('id_' + params.messageId, inboundData);
+
+    res.send(inboundData);
+  }
+
+  res.status(200).end();
+}
