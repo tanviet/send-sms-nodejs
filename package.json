@@ -20,6 +20,6 @@
     "express": "^4.15.2",
     "nexmo": "^1.2.0",
     "node-persist": "^2.0.10",
-    "socket.io": "^1.7.3"
+    "socket.io": ">=2.4.0"
   }
 }
